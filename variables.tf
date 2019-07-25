@@ -131,7 +131,7 @@ variable "binlog_format" {
 
 variable "cluster_parameters" {
   description = "List of custom cluster parameters to apply to the parameter group."
-  type = list(string)
+  type = list(map(string))
   default = []
 }
 
@@ -203,7 +203,7 @@ variable "options" {
 
 variable "parameters" {
   description = "List of custom parameters to apply to the parameter group."
-  type = list(string)
+  type = list(map(string))
   default = []
 }
 

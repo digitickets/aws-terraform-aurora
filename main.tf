@@ -63,15 +63,8 @@ locals {
 
   # This section selects the explicitly defined variable first, the default provided in the above map next,
   # and finally an appropriate default value
-  port = coalesce(
-    var.port,
-    lookup(local.engine_defaults[var.engine], "port", "3306"),
-  )
-
-  engine_version = coalesce(
-    var.engine_version,
-    local.engine_defaults[var.engine]["version"],
-  )
+  port           = coalesce(var.port, lookup(local.engine_defaults[var.engine], "port", "3306"))
+  engine_version = coalesce(var.engine_version, local.engine_defaults[var.engine]["version"])
 
   global_cluster_identifier = var.engine_mode == "global" ? var.global_cluster_identifier : ""
 
@@ -135,53 +128,9 @@ resource "aws_db_parameter_group" "db_parameter_group" {
   dynamic "parameter" {
     for_each = concat(var.parameters, local.parameters)
     content {
-      # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-      # which keys might be set in maps assigned here, so it has
-      # produced a comprehensive set here. Consider simplifying
-      # this after confirming which keys can be set in practice.
-
       apply_method = lookup(parameter.value, "apply_method", null)
       name         = parameter.value.name
       value        = parameter.value.value
-    }
-  }
-
-  tags = merge(var.tags, local.tags)
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_db_option_group" "db_option_group" {
-  count = var.existing_option_group_name == "" ? 1 : 0
-
-  name_prefix              = "${var.name}-"
-  option_group_description = "Option group for ${var.name}"
-  engine_name              = var.engine
-  major_engine_version     = local.major_version
-
-  dynamic "option" {
-    for_each = concat(var.options, local.options)
-    content {
-      # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-      # which keys might be set in maps assigned here, so it has
-      # produced a comprehensive set here. Consider simplifying
-      # this after confirming which keys can be set in practice.
-
-      db_security_group_memberships  = lookup(option.value, "db_security_group_memberships", null)
-      option_name                    = option.value.option_name
-      port                           = lookup(option.value, "port", null)
-      version                        = lookup(option.value, "version", null)
-      vpc_security_group_memberships = lookup(option.value, "vpc_security_group_memberships", null)
-
-      dynamic "option_settings" {
-        for_each = lookup(option.value, "option_settings", [])
-        content {
-          name  = option_settings.value.name
-          value = option_settings.value.value
-        }
-      }
     }
   }
 
@@ -207,11 +156,6 @@ resource "aws_rds_cluster_parameter_group" "db_cluster_parameter_group" {
   dynamic "parameter" {
     for_each = concat(var.cluster_parameters, local.cluster_parameters[var.engine])
     content {
-      # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-      # which keys might be set in maps assigned here, so it has
-      # produced a comprehensive set here. Consider simplifying
-      # this after confirming which keys can be set in practice.
-
       apply_method = lookup(parameter.value, "apply_method", null)
       name         = parameter.value.name
       value        = parameter.value.value
@@ -257,29 +201,11 @@ resource "aws_iam_role_policy_attachment" "enhanced_monitoring_policy" {
 }
 
 locals {
-  subnet_group = coalesce(
-    var.existing_subnet_group,
-    join("", aws_db_subnet_group.db_subnet_group.*.id),
-  )
-  parameter_group = coalesce(
-    var.existing_parameter_group_name,
-    join("", aws_db_parameter_group.db_parameter_group.*.id),
-  )
-  cluster_parameter_group = coalesce(
-    var.existing_cluster_parameter_group_name,
-    join(
-      "",
-      aws_rds_cluster_parameter_group.db_cluster_parameter_group.*.id,
-    ),
-  )
-  option_group = coalesce(
-    var.existing_option_group_name,
-    join("", aws_db_option_group.db_option_group.*.id),
-  )
-  monitoring_role_arn = coalesce(
-    var.existing_monitoring_role,
-    join("", aws_iam_role.enhanced_monitoring_role.*.arn),
-  )
+  subnet_group            = coalesce(var.existing_subnet_group, join("", aws_db_subnet_group.db_subnet_group.*.id))
+  parameter_group         = var.existing_parameter_group_name != "" ? var.existing_parameter_group_name : join("", aws_db_parameter_group.db_parameter_group.*.id)
+  cluster_parameter_group = var.existing_cluster_parameter_group_name != "" ? var.existing_cluster_parameter_group_name : join("", aws_rds_cluster_parameter_group.db_cluster_parameter_group.*.id)
+  monitoring_role_arn     = var.existing_monitoring_role != "" ? var.existing_monitoring_role : join("", aws_iam_role.enhanced_monitoring_role.*.arn)
+
 }
 
 # RDS Cluster
@@ -325,7 +251,6 @@ resource "aws_rds_cluster" "db_cluster" {
   # to use any existing groups seems to throw off dependancies while destroying resources.
   depends_on = [
     aws_db_parameter_group.db_parameter_group,
-    aws_db_option_group.db_option_group,
     aws_db_subnet_group.db_subnet_group,
     aws_rds_cluster_parameter_group.db_cluster_parameter_group,
   ]
