@@ -290,6 +290,10 @@ resource "aws_rds_cluster_instance" "cluster_instance" {
   tags = "${merge(var.tags, local.tags)}"
 
   depends_on = ["aws_iam_role_policy_attachment.enhanced_monitoring_policy"]
+
+  lifecycle {
+    ignore_changes = ["instance_class"]
+  }
 }
 
 data "null_data_source" "alarm_dimensions" {
